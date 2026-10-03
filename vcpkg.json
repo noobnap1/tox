@@ -1,0 +1,5 @@
+{
+  "name": "tox",
+  "version": "0.1.0",
+  "dependencies": ["llama-cpp", "whisper-cpp", "miniaudio", "opencv4"]
+}

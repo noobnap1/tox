@@ -1,0 +1,8 @@
+build/
+Models/
+Images/
+CMakeFiles/
+external/
+.vscode/
+.cache/
+CMakeCache.txt
