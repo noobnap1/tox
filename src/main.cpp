@@ -33,7 +33,7 @@ constexpr std::string_view SYSTEM_PROMPT =
     "If the speaker is Unrecognised, do not guess their identity."
     "The speaker may change mid conversation, while 'Mahfid', 'Golam Rasul' 'Tawseef' or 'Shafat' are your creators.";
 
-constexpr std::string_view DEFAULT_MODEL = "./Models/llama-3.2-3b-instruct-q4_k_m.gguf";
+constexpr std::string_view DEFAULT_MODEL = "./Models/Llama-3.2-1B-Instruct-Q4_K_M.gguf";
 
 constexpr std::string_view WHISPER_MODEL = "./Models/ggml-base.en.bin";
 
@@ -41,8 +41,8 @@ constexpr std::string_view YUNET_MODEL = "./Models/face_detection_yunet_2023mar.
 
 constexpr std::string_view SFACE_MODEL = "./Models/face_recognition_sface_2021dec.onnx";
 
-constexpr int N_CTX = 4096;
-constexpr int N_THREADS = 5;
+constexpr int N_CTX = 2048;
+constexpr int N_THREADS = 3;
 constexpr int WHISPER_THREADS = 2;
 constexpr int CAMERA_INDEX = 0;
 

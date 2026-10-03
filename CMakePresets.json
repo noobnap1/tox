@@ -2,8 +2,8 @@
     "version": 6,
     "configurePresets": [
         {
-            "name": "base",
-            "displayName": "PC-Exec",
+            "name": "native",
+            "displayName": "Native Build",
             "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
@@ -15,40 +15,19 @@
                 "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets",
                 "VCPKG_TARGET_TRIPLET": "x64-linux-native"
             }
-        },
-        {
-            "name": "pi",
-            "displayName": "Pi-Exec (cross)",
-            "inherits": "base",
-            "cacheVariables": {
-                "VCPKG_TARGET_TRIPLET": "arm64-linux-cross",
-                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/triplets/aarch64-toolchain.cmake"
-            }
         }
     ],
     "buildPresets": [
         {
             "name": "Debug",
             "displayName": "Debug",
-            "configurePreset": "base",
+            "configurePreset": "native",
             "configuration": "Debug"
         },
         {
             "name": "Release",
             "displayName": "Release",
-            "configurePreset": "base",
-            "configuration": "Release"
-        },
-        {
-            "name": "pi-debug",
-            "displayName": "Debug",
-            "configurePreset": "pi",
-            "configuration": "Debug"
-        },
-        {
-            "name": "pi-release",
-            "displayName": "Release",
-            "configurePreset": "pi",
+            "configurePreset": "native",
             "configuration": "Release"
         }
     ]

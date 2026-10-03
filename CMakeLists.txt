@@ -19,7 +19,7 @@ add_library(miniaudio INTERFACE)
 add_library(face_enroll STATIC
     src/enroll.cpp
 )
-
+set(GGML_NATIVE ON CACHE BOOL "" FORCE)
 target_include_directories(face_enroll PUBLIC
     src
 )
