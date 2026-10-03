@@ -33,15 +33,15 @@ constexpr std::string_view SYSTEM_PROMPT =
     "If the speaker is Unrecognised, do not guess their identity."
     "The speaker may change mid conversation, while 'Mahfid', 'Golam Rasul' 'Tawseef' or 'Shafat' are your creators.";
 
-constexpr std::string_view DEFAULT_MODEL = "llama-3.2-3b-instruct-q4_k_m.gguf";
+constexpr std::string_view DEFAULT_MODEL = "./Models/llama-3.2-3b-instruct-q4_k_m.gguf";
 
-constexpr std::string_view WHISPER_MODEL = "ggml-base.en.bin";
+constexpr std::string_view WHISPER_MODEL = "./Models/ggml-base.en.bin";
 
-constexpr std::string_view YUNET_MODEL = "face_detection_yunet_2023mar.onnx";
+constexpr std::string_view YUNET_MODEL = "./Models/face_detection_yunet_2023mar.onnx";
 
-constexpr std::string_view SFACE_MODEL = "face_recognition_sface_2021dec.onnx";
+constexpr std::string_view SFACE_MODEL = "./Models/face_recognition_sface_2021dec.onnx";
 
-constexpr int N_CTX = 2048;
+constexpr int N_CTX = 4096;
 constexpr int N_THREADS = 5;
 constexpr int WHISPER_THREADS = 2;
 constexpr int CAMERA_INDEX = 0;
@@ -343,13 +343,9 @@ std::vector<float> record_audio() {
 int run(int argc, char** argv) {
     namespace fs = std::filesystem;
 
-    const fs::path model_path =
-        argc > 1
-            ? fs::path{argv[1]}
-            : fs::path{TOX_MODEL_DIR} / DEFAULT_MODEL;
+    const fs::path model_path = DEFAULT_MODEL;
 
-    const fs::path whisper_model_path =
-        fs::path{TOX_MODEL_DIR} / WHISPER_MODEL;
+    const fs::path whisper_model_path = WHISPER_MODEL;
 
     ggml_backend_load_all();
 
@@ -449,13 +445,13 @@ int run(int argc, char** argv) {
 
     Vision vision(
         CAMERA_INDEX,
-        fs::path{TOX_MODEL_DIR} / YUNET_MODEL,
-        fs::path{TOX_MODEL_DIR} / SFACE_MODEL
+        YUNET_MODEL,
+        SFACE_MODEL
     );
 
     auto gallery =
         enroll::load_gallery(
-            fs::path{TOX_MODEL_DIR} / "faces"
+            "./Models/faces"
         );
 
     std::cout

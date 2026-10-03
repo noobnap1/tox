@@ -7,10 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
-endif()
-
 find_package(llama CONFIG REQUIRED)
 find_package(whisper CONFIG REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -30,10 +26,6 @@ target_include_directories(face_enroll PUBLIC
 
 target_link_libraries(face_enroll PUBLIC
     ${OpenCV_LIBS}
-)
-
-target_compile_definitions(face_enroll PUBLIC
-    TOX_MODEL_DIR="${CMAKE_SOURCE_DIR}/Models"
 )
 
 # Main voice chatbot.

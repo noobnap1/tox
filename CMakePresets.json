@@ -1,18 +1,55 @@
 {
-  "version": 6,
-  "configurePresets": [
-    {
-      "name": "base", "hidden": true, "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/${presetName}",
-      "toolchainFile": "$env{HOME}/Documents/repos/vcpkg/scripts/buildsystems/vcpkg.cmake",
-      "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_CXX_SCAN_FOR_MODULES": "OFF",
-        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets",
-        "VCPKG_TARGET_TRIPLET": "x64-linux-native"
-      }
-    },
-    { "name": "release", "inherits": "base", "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" } },
-    { "name": "debug", "inherits": "base", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" } }
-  ]
+    "version": 6,
+    "configurePresets": [
+        {
+            "name": "base",
+            "displayName": "PC-Exec",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "cacheVariables": {
+                "CMAKE_MAKE_PROGRAM": "/usr/bin/ninja",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_CXX_SCAN_FOR_MODULES": "OFF",
+                "CMAKE_CONFIGURATION_TYPES": "Debug;Release",
+                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets",
+                "VCPKG_TARGET_TRIPLET": "x64-linux-native"
+            }
+        },
+        {
+            "name": "pi",
+            "displayName": "Pi-Exec (cross)",
+            "inherits": "base",
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "arm64-linux-cross",
+                "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/triplets/aarch64-toolchain.cmake"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "Debug",
+            "displayName": "Debug",
+            "configurePreset": "base",
+            "configuration": "Debug"
+        },
+        {
+            "name": "Release",
+            "displayName": "Release",
+            "configurePreset": "base",
+            "configuration": "Release"
+        },
+        {
+            "name": "pi-debug",
+            "displayName": "Debug",
+            "configurePreset": "pi",
+            "configuration": "Debug"
+        },
+        {
+            "name": "pi-release",
+            "displayName": "Release",
+            "configurePreset": "pi",
+            "configuration": "Release"
+        }
+    ]
 }
