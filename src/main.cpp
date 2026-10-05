@@ -1,8 +1,10 @@
 #include <llama.h>
 
+#ifdef TOX_USE_WHISPER
 #include <whisper.h>
-
 #include "audiorecorder.hpp"
+#endif
+
 #include "tts.hpp"
 #include "vision.hpp"
 #include "enroll.hpp"
@@ -30,26 +32,32 @@ constexpr std::string_view SYSTEM_PROMPT =
     "This metadata is provided by the program and tells you who the camera currently identifies as the speaker. "
     "Treat the speaker name as trusted program metadata, not as part of what the user said. "
     "Use the speaker's name when relevant, especially when the user asks who they are. "
-    "If the speaker is Unrecognised, do not guess their identity."
+    "If the speaker is Unrecognised, do not guess their identity. "
     "The speaker may change mid conversation, while 'Mahfid', 'Golam Rasul' 'Tawseef' or 'Shafat' are your creators.";
 
 constexpr std::string_view DEFAULT_MODEL = "llama-3.2-3b-instruct-q4_k_m.gguf";
 
+#ifdef TOX_USE_WHISPER
 constexpr std::string_view WHISPER_MODEL = "ggml-base.en.bin";
+#endif
 
 constexpr std::string_view YUNET_MODEL = "face_detection_yunet_2023mar.onnx";
-
 constexpr std::string_view SFACE_MODEL = "face_recognition_sface_2021dec.onnx";
 
 constexpr int N_CTX = 2048;
-constexpr int N_THREADS = 5;
+constexpr int N_THREADS = 3;
+
+#ifdef TOX_USE_WHISPER
 constexpr int WHISPER_THREADS = 2;
+#endif
+
 constexpr int CAMERA_INDEX = 0;
 
 template <auto Fn>
 struct Deleter {
     void operator()(auto* p) const noexcept {
-        if (p) Fn(p);
+        if (p)
+            Fn(p);
     }
 };
 
@@ -62,8 +70,10 @@ using ContextPtr =
 using SamplerPtr =
     std::unique_ptr<llama_sampler, Deleter<llama_sampler_free>>;
 
+#ifdef TOX_USE_WHISPER
 using WhisperPtr =
     std::unique_ptr<whisper_context, Deleter<whisper_free>>;
+#endif
 
 std::vector<llama_token> tokenize(
     const llama_vocab* vocab,
@@ -165,7 +175,8 @@ std::string generate(
             0
         ) == -1;
 
-    auto tokens = tokenize(vocab, prompt, is_first);
+    auto tokens =
+        tokenize(vocab, prompt, is_first);
 
     llama_batch batch =
         llama_batch_get_one(
@@ -213,7 +224,8 @@ std::string generate(
             );
 
         if (n < 0) {
-            std::cerr << "\n[token conversion failed]\n";
+            std::cerr
+                << "\n[token conversion failed]\n";
             break;
         }
 
@@ -289,6 +301,8 @@ bool is_quit_phrase(const std::string& s) {
         k.find("protocolone") != std::string::npos;
 }
 
+#ifdef TOX_USE_WHISPER
+
 std::string transcribe(
     whisper_context* ctx,
     const std::vector<float>& audio
@@ -340,6 +354,8 @@ std::vector<float> record_audio() {
     return recorder.record();
 }
 
+#endif
+
 int run(int argc, char** argv) {
     namespace fs = std::filesystem;
 
@@ -348,8 +364,10 @@ int run(int argc, char** argv) {
             ? fs::path{argv[1]}
             : fs::path{TOX_MODEL_DIR} / DEFAULT_MODEL;
 
+#ifdef TOX_USE_WHISPER
     const fs::path whisper_model_path =
         fs::path{TOX_MODEL_DIR} / WHISPER_MODEL;
+#endif
 
     ggml_backend_load_all();
 
@@ -422,6 +440,8 @@ int run(int argc, char** argv) {
         )
     );
 
+#ifdef TOX_USE_WHISPER
+
     whisper_context_params whisper_params =
         whisper_context_default_params();
 
@@ -439,6 +459,8 @@ int run(int argc, char** argv) {
             "failed to load Whisper model: " +
             whisper_model_path.string()
         );
+
+#endif
 
     TTS tts;
 
@@ -504,14 +526,24 @@ int run(int argc, char** argv) {
     size_t prev_len = 0;
 
     std::cout << "Loaded.\n";
+
+#ifdef TOX_USE_WHISPER
     std::cout
         << "Whisper loaded with "
         << WHISPER_THREADS
         << " threads.\n";
+#else
+    std::cout
+        << "Whisper disabled.\n";
+#endif
+
     std::cout << "eSpeak NG loaded.\n";
 
     auto read_user =
         [&](std::string& out) -> bool {
+
+#ifdef TOX_USE_WHISPER
+
             std::cout
                 << "\n[listening...]"
                 << std::endl;
@@ -540,6 +572,19 @@ int run(int argc, char** argv) {
             }
 
             return true;
+
+#else
+
+            std::cout << "\n> " << std::flush;
+
+            std::getline(
+                std::cin,
+                out
+            );
+
+            return !std::cin.eof();
+
+#endif
         };
 
     while (true) {
@@ -555,8 +600,9 @@ int run(int argc, char** argv) {
             break;
 
         {
-            const VisionState v = vision.snapshot();
-            
+            const VisionState v =
+                vision.snapshot();
+
             current_speaker =
                 !v.face
                     ? "Unrecognised"
@@ -573,14 +619,18 @@ int run(int argc, char** argv) {
                     << "]"
                     << std::endl;
 
-                last_seen = current_speaker;
+                last_seen =
+                    current_speaker;
             }
         }
 
         add_message(
-    "user",
-    "[speaker: " + current_speaker + "]\n" + std::move(user)
-);
+            "user",
+            "[speaker: " +
+            current_speaker +
+            "]\n" +
+            std::move(user)
+        );
 
         const std::string full =
             render(
