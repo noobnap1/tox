@@ -15,7 +15,7 @@ find_package(llama CONFIG REQUIRED)
 find_package(whisper CONFIG REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(ESPEAK_NG REQUIRED espeak-ng)
-find_package(OpenCV CONFIG REQUIRED COMPONENTS core imgproc imgcodecs videoio dnn objdetect)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs videoio dnn objdetect)
 
 add_library(miniaudio INTERFACE)
 

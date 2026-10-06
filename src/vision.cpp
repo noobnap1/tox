@@ -4,52 +4,11 @@
 #include <opencv2/videoio.hpp>
 
 #include <chrono>
-#include <fcntl.h>
 #include <iostream>
-#include <linux/videodev2.h>
+#include <mutex>
 #include <stop_token>
 #include <string>
-#include <sys/ioctl.h>
 #include <thread>
-#include <unistd.h>
-
-namespace {
-
-bool is_camera_device(const std::string& device) {
-    const int fd = ::open(
-        device.c_str(),
-        O_RDWR | O_NONBLOCK);
-
-    if (fd < 0) {
-        return false;
-    }
-
-    v4l2_capability capability{};
-
-    const bool queried =
-        ::ioctl(
-            fd,
-            VIDIOC_QUERYCAP,
-            &capability) == 0;
-
-    ::close(fd);
-
-    if (!queried) {
-        return false;
-    }
-
-    if (capability.capabilities & V4L2_CAP_DEVICE_CAPS) {
-        return
-            (capability.device_caps & V4L2_CAP_VIDEO_CAPTURE) ||
-            (capability.device_caps & V4L2_CAP_VIDEO_CAPTURE_MPLANE);
-    }
-
-    return
-        (capability.capabilities & V4L2_CAP_VIDEO_CAPTURE) ||
-        (capability.capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE);
-}
-
-}
 
 Vision::Vision(
     int camera,
@@ -96,10 +55,36 @@ void Vision::run(std::stop_token st) {
     constexpr auto retry_period =
         std::chrono::seconds(5);
 
+    constexpr int max_failed_reads = 10;
+
+    const std::string pipeline =
+        "libcamerasrc ! "
+        "video/x-raw,format=RGB,width=1920,height=1080,framerate=30/1 ! "
+        "videoconvert ! "
+        "video/x-raw,format=BGR ! "
+        "appsink drop=true max-buffers=1 sync=false";
+
     cv::VideoCapture cap;
 
     bool camera_present = false;
     bool no_camera_reported = false;
+    int failed_reads = 0;
+
+    auto publish_empty = [this] {
+        std::lock_guard lock(mutex_);
+
+        VisionState s;
+
+        s.seq = state_.seq + 1;
+        s.frame = {};
+        s.faces = 0;
+        s.face = false;
+        s.name.clear();
+        s.score = 0.0f;
+        s.box = {};
+
+        state_ = std::move(s);
+    };
 
     cv::Ptr<cv::FaceDetectorYN> det =
         cv::FaceDetectorYN::create(
@@ -124,62 +109,11 @@ void Vision::run(std::stop_token st) {
 
     while (!st.stop_requested()) {
         if (!cap.isOpened()) {
-            const std::string device =
-                "/dev/video" +
-                std::to_string(camera_);
-
-            if (!is_camera_device(device)) {
-                if (!no_camera_reported) {
-                    std::cout
-                        << "[vision] No camera"
-                        << std::endl;
-
-                    no_camera_reported = true;
-                }
-
-                {
-                    std::lock_guard lock(mutex_);
-
-                    VisionState s;
-
-                    s.seq =
-                        state_.seq + 1;
-
-                    s.frame = {};
-                    s.faces = 0;
-                    s.face = false;
-                    s.name.clear();
-                    s.score = 0.0f;
-                    s.box = {};
-
-                    state_ =
-                        std::move(s);
-                }
-
-                std::this_thread::sleep_for(
-                    retry_period);
-
-                continue;
-            }
-
-            if (cap.open(
-                    camera_,
-                    cv::CAP_V4L2)) {
-
-                cap.set(
-                    cv::CAP_PROP_FRAME_WIDTH,
-                    640);
-
-                cap.set(
-                    cv::CAP_PROP_FRAME_HEIGHT,
-                    480);
-
-                cap.set(
-                    cv::CAP_PROP_BUFFERSIZE,
-                    1);
-
+            std::cout << "[vision] Pipeline: " << pipeline << std::endl;
+            if (cap.open(pipeline, cv::CAP_GSTREAMER)) {
                 camera_present = true;
                 no_camera_reported = false;
+                failed_reads = 0;
 
                 std::cout
                     << "[vision] Camera connected"
@@ -195,24 +129,7 @@ void Vision::run(std::stop_token st) {
                     no_camera_reported = true;
                 }
 
-                {
-                    std::lock_guard lock(mutex_);
-
-                    VisionState s;
-
-                    s.seq =
-                        state_.seq + 1;
-
-                    s.frame = {};
-                    s.faces = 0;
-                    s.face = false;
-                    s.name.clear();
-                    s.score = 0.0f;
-                    s.box = {};
-
-                    state_ =
-                        std::move(s);
-                }
+                publish_empty();
 
                 std::this_thread::sleep_for(
                     retry_period);
@@ -221,12 +138,17 @@ void Vision::run(std::stop_token st) {
             }
         }
 
-        const auto t0 =
-            clock::now();
+        const auto t0 = clock::now();
 
-        if (!cap.read(frame) ||
-            frame.empty()) {
+        if (!cap.read(frame) || frame.empty()) {
+            if (++failed_reads < max_failed_reads) {
+                std::this_thread::sleep_for(
+                    std::chrono::milliseconds(50));
 
+                continue;
+            }
+
+            failed_reads = 0;
             cap.release();
 
             if (camera_present) {
@@ -239,24 +161,7 @@ void Vision::run(std::stop_token st) {
 
             no_camera_reported = false;
 
-            {
-                std::lock_guard lock(mutex_);
-
-                VisionState s;
-
-                s.seq =
-                    state_.seq + 1;
-
-                s.frame = {};
-                s.faces = 0;
-                s.face = false;
-                s.name.clear();
-                s.score = 0.0f;
-                s.box = {};
-
-                state_ =
-                    std::move(s);
-            }
+            publish_empty();
 
             std::this_thread::sleep_for(
                 retry_period);
@@ -264,8 +169,9 @@ void Vision::run(std::stop_token st) {
             continue;
         }
 
-        det->setInputSize(
-            frame.size());
+        failed_reads = 0;
+
+        det->setInputSize(frame.size());
 
         det->detect(
             frame,
@@ -273,29 +179,17 @@ void Vision::run(std::stop_token st) {
 
         VisionState s;
 
-        s.frame =
-            frame.size();
-
-        s.faces =
-            faces.rows;
+        s.frame = frame.size();
+        s.faces = faces.rows;
 
         if (faces.rows > 0) {
             int best = 0;
+            float best_area = 0.0f;
 
-            float best_area =
-                0.0f;
-
-            for (int i = 0;
-                 i < faces.rows;
-                 ++i) {
-
+            for (int i = 0; i < faces.rows; ++i) {
                 const float area =
-                    faces.at<float>(
-                        i,
-                        2) *
-                    faces.at<float>(
-                        i,
-                        3);
+                    faces.at<float>(i, 2) *
+                    faces.at<float>(i, 3);
 
                 if (area > best_area) {
                     best_area = area;
@@ -306,25 +200,10 @@ void Vision::run(std::stop_token st) {
             s.face = true;
 
             s.box = cv::Rect(
-                static_cast<int>(
-                    faces.at<float>(
-                        best,
-                        0)),
-
-                static_cast<int>(
-                    faces.at<float>(
-                        best,
-                        1)),
-
-                static_cast<int>(
-                    faces.at<float>(
-                        best,
-                        2)),
-
-                static_cast<int>(
-                    faces.at<float>(
-                        best,
-                        3)));
+                static_cast<int>(faces.at<float>(best, 0)),
+                static_cast<int>(faces.at<float>(best, 1)),
+                static_cast<int>(faces.at<float>(best, 2)),
+                static_cast<int>(faces.at<float>(best, 3)));
 
             if (rec) {
                 cv::Mat aligned;
@@ -339,28 +218,20 @@ void Vision::run(std::stop_token st) {
                     aligned,
                     feat);
 
-                feat =
-                    feat.clone();
+                feat = feat.clone();
 
-                for (const auto& p :
-                     gallery_) {
-
+                for (const auto& p : gallery_) {
                     const double score =
                         rec->match(
                             feat,
                             p.feature,
                             cv::FaceRecognizerSF::DisType::FR_COSINE);
 
-                    if (
-                        score > s.score &&
-                        score >= 0.363
-                    ) {
+                    if (score > s.score && score >= 0.363) {
                         s.score =
-                            static_cast<float>(
-                                score);
+                            static_cast<float>(score);
 
-                        s.name =
-                            p.name;
+                        s.name = p.name;
                     }
                 }
             }
@@ -369,11 +240,8 @@ void Vision::run(std::stop_token st) {
         {
             std::lock_guard lock(mutex_);
 
-            s.seq =
-                state_.seq + 1;
-
-            state_ =
-                std::move(s);
+            s.seq = state_.seq + 1;
+            state_ = std::move(s);
         }
 
         std::this_thread::sleep_until(
