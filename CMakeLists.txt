@@ -14,12 +14,14 @@ endif()
 find_package(llama CONFIG REQUIRED)
 find_package(whisper CONFIG REQUIRED)
 find_package(PkgConfig REQUIRED)
+
 pkg_check_modules(ESPEAK_NG REQUIRED espeak-ng)
-find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs videoio dnn objdetect)
+pkg_check_modules(LIBCAMERA REQUIRED libcamera)
+
+find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs dnn objdetect)
 
 add_library(miniaudio INTERFACE)
 
-# Face enrollment code shared by tox (loads the gallery) and the enroll tool (creates it).
 add_library(face_enroll STATIC
     src/enroll.cpp
 )
@@ -36,16 +38,21 @@ target_compile_definitions(face_enroll PUBLIC
     TOX_MODEL_DIR="${CMAKE_SOURCE_DIR}/Models"
 )
 
-# Main voice chatbot.
 add_executable(tox
     src/main.cpp
     src/tts.cpp
     src/vision.cpp
+    src/camera.cpp
     src/audiorecorder.cpp
 )
 
 target_include_directories(tox PRIVATE
     ${ESPEAK_NG_INCLUDE_DIRS}
+    ${LIBCAMERA_INCLUDE_DIRS}
+)
+
+target_link_directories(tox PRIVATE
+    ${LIBCAMERA_LIBRARY_DIRS}
 )
 
 target_link_libraries(tox PRIVATE
@@ -53,10 +60,10 @@ target_link_libraries(tox PRIVATE
     whisper
     miniaudio
     espeak-ng
+    ${LIBCAMERA_LIBRARIES}
     face_enroll
 )
 
-# Face enrollment tool. Not part of the default build: use `cmake --build --preset enroll`.
 add_executable(enroll EXCLUDE_FROM_ALL
     src/enrollMain.cpp
 )
