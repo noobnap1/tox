@@ -1,5 +1,7 @@
 #include <llama.h>
 
+#define TOX_USE_WHISPER
+
 #ifdef TOX_USE_WHISPER
 #include <whisper.h>
 #include "audiorecorder.hpp"

@@ -18,7 +18,14 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(ESPEAK_NG REQUIRED espeak-ng)
 pkg_check_modules(LIBCAMERA REQUIRED libcamera)
 
-find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs dnn objdetect)
+find_package(OpenCV REQUIRED COMPONENTS
+    core
+    imgproc
+    imgcodecs
+    videoio
+    dnn
+    objdetect
+)
 
 add_library(miniaudio INTERFACE)
 

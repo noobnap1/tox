@@ -56,6 +56,7 @@ void Vision::run(std::stop_token st)
 
     constexpr auto period = std::chrono::milliseconds(66);
     constexpr auto retry_period = std::chrono::seconds(5);
+    constexpr auto debug_period = std::chrono::seconds(1);
 
     Camera camera;
 
@@ -64,7 +65,7 @@ void Vision::run(std::stop_token st)
             detector_.string(),
             "",
             cv::Size(640, 640),
-            0.4f,
+            0.7f,
             0.3f,
             5000);
 
@@ -94,6 +95,7 @@ void Vision::run(std::stop_token st)
     bool camera_present = false;
     bool no_camera_reported = false;
 
+    auto last_debug = clock::now() - debug_period;
 
     while (!st.stop_requested()) {
         if (!camera_present) {
@@ -147,6 +149,18 @@ void Vision::run(std::stop_token st)
 
         cv::Mat faces;
         det->detect(frame, faces);
+
+        const auto now = clock::now();
+        const bool debug = now - last_debug >= debug_period;
+
+        if (debug) {
+            std::cout
+                << "[face] detected="
+                << faces.rows
+                << '\n';
+
+            last_debug = now;
+        }
 
         VisionState s;
 
@@ -202,6 +216,14 @@ void Vision::run(std::stop_token st)
                             p.feature,
                             cv::FaceRecognizerSF::DisType::FR_COSINE);
 
+                    if (debug) {
+                        std::cout
+                            << "[face] "
+                            << p.name
+                            << " score="
+                            << score
+                            << '\n';
+                    }
 
                     if (score > s.score &&
                         score >= 0.363) {

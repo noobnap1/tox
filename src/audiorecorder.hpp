@@ -18,7 +18,7 @@ public:
     std::vector<float> record(
         float speech_threshold = 0.015f,
         int silence_duration_ms = 1200,
-        int no_speech_timeout_ms = 3000,
+        int no_speech_timeout_ms = 5000,
         int max_duration_ms = 30000,
         int preroll_ms = 250
     );
