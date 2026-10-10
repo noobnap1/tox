@@ -10,6 +10,7 @@
 #include "tts.hpp"
 #include "vision.hpp"
 #include "enroll.hpp"
+#include "jaw.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -493,6 +494,12 @@ int run(int argc, char** argv) {
 
     vision.start();
 
+    Jaw jaw;
+
+    if (!jaw.init())
+        std::cerr
+            << "servo board not available, continuing without jaw\n";
+
     std::string current_speaker = "Unrecognised";
     std::string last_seen;
 
@@ -663,8 +670,11 @@ int run(int argc, char** argv) {
             ctx.get()
         );
 
-        if (!response.empty())
+        if (!response.empty()) {
+            jaw.open_jaw();
             tts.speak(response);
+            jaw.close_jaw();
+        }
 
         add_message(
             "assistant",
